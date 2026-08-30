@@ -36,6 +36,31 @@ linters:
     - wsl_v5
     - gomodguard
 
+  settings:
+    # Both serialised shapes are published contracts, not style choices:
+    # contracts/output.schema.json fixes the JSON, and config.schema.json fixes
+    # the YAML. Both are snake_case, so the linter is told the convention rather
+    # than the contract rewritten.
+    tagliatelle:
+      case:
+        rules:
+          json: snake
+          yaml: snake
+
+    # Every switch over an enum in this codebase carries a default that handles
+    # the unlisted cases explicitly. Requiring every case to be enumerated as
+    # well would add noise without adding a check.
+    exhaustive:
+      default-signifies-exhaustive: true
+
+    # A type with a value-receiver String and a pointer-receiver UnmarshalYAML
+    # is the ordinary Go shape for a parsed enum; the mix is required by the
+    # interfaces, not accidental.
+    recvcheck:
+      exclusions:
+        - "*.UnmarshalYAML"
+        - "*.UnmarshalJSON"
+
 formatters:
   enable:
     - gofmt

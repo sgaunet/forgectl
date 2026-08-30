@@ -1,0 +1,55 @@
+# The three profiles built into the forgectl binary (FR-008).
+#
+# They are embedded with //go:embed, so forgectl is usable against github.com
+# and gitlab.com with no configuration file at all (SC-001). A configured
+# profile of the same name replaces its built-in namesake entirely — there is
+# no field-level merge, so a partial override cannot silently inherit a
+# variable the maintainer meant to drop.
+#
+# No value appears here. Each variable names where its value comes from: a key
+# in the shared value store, or the generator that produces it.
+
+profiles:
+  # Publishing an Ansible role to Galaxy needs one API token, which the
+  # maintainer holds in the shared value store.
+  ansible-role:
+    protected_tags: []
+    variables:
+      - name: GALAXY_API_TOKEN
+        value_ref: galaxy_api_token
+        secret: true
+        masked: true
+
+  # A Go release pipeline runs on tags and needs a platform token that is never
+  # a human's personal token. forgectl generates it, writes it into the CI
+  # variable, and rotates it before it expires.
+  go-release:
+    protected_tags:
+      - "v*"
+    variables:
+      - name: GITLAB_TOKEN
+        generator: gitlab-pat
+        token_name: forgectl
+        scopes:
+          - api
+        role: maintainer
+        expires_in: 180d
+        rotate_before: 60d
+        revoke_rotated: true
+        secret: true
+        masked: true
+        protected: true
+
+  # Deploying over SSH needs a private key. A key is multiline, which GitLab
+  # refuses to mask, so the write is retried unmasked with a warning (R7).
+  ssh-deploy:
+    protected_tags: []
+    variables:
+      - name: SSH_PRIVATE_KEY
+        value_ref: ssh_private_key
+        secret: true
+        masked: false
+      - name: SSH_KNOWN_HOSTS
+        value_ref: ssh_known_hosts
+        secret: false
+        masked: false

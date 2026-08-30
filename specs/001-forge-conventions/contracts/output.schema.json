@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/sgaunet/forgectl/schemas/output.schema.json",
+  "title": "forgectl --output=json",
+  "description": "One document per run, written to stdout. Identical in shape for check and apply; apply additionally populates 'actions'. No property in this document ever carries a configured or generated value (FR-054).",
+  "type": "object",
+  "required": ["command", "repository", "instance", "profiles", "checks", "summary"],
+  "additionalProperties": false,
+  "properties": {
+    "command": {
+      "description": "Which command produced this document.",
+      "enum": ["check", "apply", "detect"]
+    },
+    "repository": {
+      "description": "owner/name, as derived from the remote URL.",
+      "type": "string",
+      "pattern": "^[^/]+/[^/]+$"
+    },
+    "instance": {
+      "type": "object",
+      "required": ["name", "platform", "host"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "platform": { "enum": ["github", "gitlab"] },
+        "host": { "type": "string" },
+        "api_url": { "type": "string", "format": "uri" }
+      }
+    },
+    "profiles": {
+      "description": "Selected profile names, in the order given. Empty when none was selected, in which case only branch and protection checks are present.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "checks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/check" }
+    },
+    "actions": {
+      "description": "Present only for apply. The plan, in execution order, each entry carrying its result.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/action" }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["pass", "fail", "skip"],
+      "additionalProperties": false,
+      "properties": {
+        "pass": { "type": "integer", "minimum": 0 },
+        "fail": { "type": "integer", "minimum": 0 },
+        "skip": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "warnings": {
+      "description": "Non-fatal conditions also emitted on stderr, repeated here so a JSON consumer sees them without reading two streams.",
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "$defs": {
+    "check": {
+      "type": "object",
+      "required": ["id", "domain", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "branch, protection, tags, or vars:<NAME>.",
+          "type": "string",
+          "pattern": "^(branch|protection|tags|vars:[A-Za-z_][A-Za-z0-9_]*)$"
+        },
+        "domain": {
+          "description": "The --only/--skip domain this check belongs to. The tags check reports domain 'protection'.",
+          "enum": ["branch", "protection", "vars"]
+        },
+        "status": { "enum": ["pass", "fail", "skip"] },
+        "expected": {
+          "description": "Set on fail. A state description, never a value.",
+          "type": "string"
+        },
+        "actual": {
+          "description": "Set on fail. A state description, never a value. For a drifted variable this is the literal string 'differs', never the differing value.",
+          "type": "string"
+        },
+        "reason": {
+          "description": "Set on skip. Why the check could not be evaluated.",
+          "type": "string"
+        },
+        "fixable": {
+          "description": "Whether apply can resolve this. False for a default branch that is neither master nor main (FR-039).",
+          "type": "boolean"
+        },
+        "pattern": {
+          "description": "Set on the tags check: the tag pattern evaluated.",
+          "type": "string"
+        },
+        "generator": {
+          "description": "Set only for a generated variable.",
+          "enum": ["gitlab-pat"]
+        },
+        "expires_at": {
+          "description": "Set only for a generated variable with an active token.",
+          "type": "string",
+          "format": "date"
+        },
+        "rotate_in_days": {
+          "description": "Days until the rotation threshold is reached. Negative once it is past.",
+          "type": "integer"
+        }
+      }
+    },
+    "action": {
+      "type": "object",
+      "required": ["domain", "description", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "domain": { "enum": ["branch", "protection", "vars"] },
+        "description": {
+          "description": "The line shown in the plan preview. Never carries a value.",
+          "type": "string"
+        },
+        "destructive": { "type": "boolean" },
+        "status": {
+          "description": "'planned' appears only when the run was cancelled at the prompt; 'skipped' when --only/--skip excluded the domain.",
+          "enum": ["done", "failed", "planned", "skipped"]
+        },
+        "error": {
+          "description": "Set when status is failed. Never carries a value.",
+          "type": "string"
+        }
+      }
+    }
+  }
+}

@@ -52,9 +52,14 @@ tasks:
   build:
     desc: "Build binary"
     cmds:
-      - CGO_ENABLED=0 go build -o {{.BINFILE}} ./cmd/forgectl
+      - CGO_ENABLED=0 go build -trimpath -o {{.BINFILE}} ./cmd/forgectl
 
 
+
+  vuln:
+    desc: "Scan for known vulnerabilities"
+    cmds:
+      - go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
   snapshot:
     desc: "Create a snapshot"

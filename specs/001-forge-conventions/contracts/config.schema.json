@@ -1,0 +1,202 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/sgaunet/forgectl/schemas/config.schema.json",
+  "title": "forgectl configuration",
+  "description": "Schema for ~/.config/forgectl/config.yaml. The file MUST be mode 0600 or narrower (FR-007). The per-repository .forgectl.yaml uses only 'profiles'; a --var-file uses only 'values'. Both sub-forms are defined at the end of this document.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "instances": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/instance" }
+    },
+    "settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "default_branch": {
+          "type": "string",
+          "default": "main"
+        }
+      }
+    },
+    "values": {
+      "description": "Shared value store. A value declared once here is referenced by any number of profiles through value_ref. Values live only in this file and on the platform; forgectl writes them nowhere else.",
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "branch_protection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean", "default": true },
+        "allow_force_push": { "type": "boolean", "default": false },
+        "allow_delete": {
+          "description": "Explicit on GitHub (the 'deletion' ruleset rule). Inherent on GitLab, which always denies deleting a protected branch, so a false value is reported as satisfied rather than as drift.",
+          "type": "boolean",
+          "default": false
+        },
+        "push_access_level": {
+          "description": "GitLab only; ignored on GitHub. Maps to GitLab access levels 0, 30, 40.",
+          "enum": ["none", "developer", "maintainer"],
+          "default": "maintainer"
+        }
+      }
+    },
+    "profiles": {
+      "description": "Overrides and extends the three profiles built into the binary. A configured profile replaces its built-in namesake entirely; there is no field-level merge.",
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/profile" }
+    }
+  },
+  "$defs": {
+    "instance": {
+      "type": "object",
+      "required": ["name", "host", "platform"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "host": {
+          "description": "Matched against the host parsed from the remote URL.",
+          "type": "string"
+        },
+        "platform": { "enum": ["github", "gitlab"] },
+        "api_url": {
+          "description": "Defaults to the platform's convention for this host.",
+          "type": "string",
+          "format": "uri"
+        },
+        "token_env": {
+          "description": "NAME of the environment variable holding the credential. Never the credential itself.",
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protected_tags": {
+          "description": "Tag patterns apply protects. Needed because a GitLab protected variable is exposed only on protected refs, and release pipelines run on tags.",
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "variables": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/variable" }
+        }
+      }
+    },
+    "variable": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "description": "Exactly one of value, value_ref, generator MUST be present (FR-009). No platform or instance field exists: one run targets one instance (FR-032).",
+      "oneOf": [
+        { "required": ["value"] },
+        { "required": ["value_ref"] },
+        { "required": ["generator"] }
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "value": {
+          "description": "Inline literal.",
+          "type": "string"
+        },
+        "value_ref": {
+          "description": "Key into the top-level values store. An unresolved key is a configuration error (FR-010).",
+          "type": "string"
+        },
+        "generator": {
+          "description": "Value produced and rotated by forgectl. Skipped with a warning on a GitHub instance (FR-029).",
+          "enum": ["gitlab-pat"]
+        },
+        "secret": {
+          "description": "GitHub: true selects an Actions secret, false an Actions variable. GitLab: no effect, every variable is a CI variable.",
+          "type": "boolean",
+          "default": true
+        },
+        "masked": {
+          "description": "GitLab only. GitLab rejects a masked value that is multiline, contains a space, or is shorter than 8 characters; apply then retries once unmasked and warns (FR-043).",
+          "type": "boolean",
+          "default": false
+        },
+        "protected": {
+          "description": "GitLab only. A protected variable is exposed only on protected branches and tags.",
+          "type": "boolean",
+          "default": false
+        },
+        "token_name": {
+          "description": "Generator only. Identifies the project access token within the project.",
+          "type": "string",
+          "default": "forgectl"
+        },
+        "scopes": {
+          "description": "Generator only.",
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["api"]
+        },
+        "role": {
+          "description": "Generator only. Maps to GitLab access levels 30 and 40.",
+          "enum": ["developer", "maintainer"],
+          "default": "maintainer"
+        },
+        "expires_in": {
+          "description": "Generator only. Whole days. GitLab enforces an instance maximum, 365 days by default; exceeding it is an explicit error stating the limit (FR-052).",
+          "type": "string",
+          "pattern": "^[0-9]+d$",
+          "default": "180d"
+        },
+        "rotate_before": {
+          "description": "Generator only. Whole days, and MUST be less than expires_in.",
+          "type": "string",
+          "pattern": "^[0-9]+d$",
+          "default": "60d"
+        },
+        "revoke_rotated": {
+          "description": "Generator only. Revocation happens strictly after the CI variable write succeeds.",
+          "type": "boolean",
+          "default": true
+        }
+      }
+    }
+  },
+  "$comment": "The two companion files below are SEPARATE documents with their own root schemas. Note that 'profiles' means different things in each: a map of definitions in config.yaml, a list of names to select in .forgectl.yaml.",
+  "companionSchemas": {
+    "repoFile": {
+      "$id": "https://github.com/sgaunet/forgectl/schemas/forgectl-repo.schema.json",
+      "title": ".forgectl.yaml (repository root)",
+      "description": "Selects which profiles apply to this repository. Consulted only when no profile is named on the command line (FR-017).",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "profiles": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "examples": [{ "profiles": ["go-release", "ssh-deploy"] }]
+    },
+    "varFile": {
+      "$id": "https://github.com/sgaunet/forgectl/schemas/forgectl-varfile.schema.json",
+      "title": "--var-file",
+      "description": "One-off, per-repository value overrides, the highest precedence in the resolution chain of FR-044. Refused when it lies inside the working copy and git does not ignore it (FR-056), with no bypass.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["values"],
+      "properties": {
+        "values": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      },
+      "examples": [{ "values": { "galaxy": "<value>" } }]
+    }
+  }
+}
