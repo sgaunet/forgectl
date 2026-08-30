@@ -15,10 +15,9 @@ builds:
     flags:
       - -trimpath
     ldflags:
+      # Version, commit and build date are read from runtime/debug.ReadBuildInfo,
+      # which goreleaser populates through the module build info. No -X needed.
       - -s -w
-      - -X internal/cli.Version={{ .Version }}
-      - -X internal/cli.Commit={{ .Commit }}
-      - -X internal/cli.Date={{ .Date }}
     goos:
       - linux
       - darwin

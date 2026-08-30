@@ -1,0 +1,20 @@
+Repository  acme/my-tool
+Instance    gitlab.com
+Host        gitlab.com
+Platform    gitlab
+API         https://gitlab.com/api/v4
+Profiles    go-release
+
+FAIL  branch                 expected main, found master
+FAIL  branch                 expected main, found trunk (not auto-fixable)
+SKIP  protection             skipped: branch main does not exist on the platform
+PASS  tags                   ok
+PASS  vars:GITLAB_TOKEN      ok, rotates in 117 days
+FAIL  vars:GALAXY_API_TOKEN  expected present, found missing
+
+Actions
+done    set the platform default branch to main
+failed  write CI variable GALAXY_API_TOKEN: the platform rejected the write
+
+2 passed, 3 failed, 1 skipped
+drift found

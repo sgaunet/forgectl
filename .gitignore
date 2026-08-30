@@ -1,0 +1,28 @@
+# Binaries and build output
+/forgectl
+*.exe
+*.dll
+*.so
+*.dylib
+/dist/
+/build/
+/bin/
+
+# Test and profiling output
+*.test
+*.out
+coverage.*
+/vendor/
+
+# Local environment and credentials — never committed (Constitution: Dependencies & Supply Chain)
+.env
+.env.*
+*.local.yaml
+/config.yaml
+/vars.yaml
+
+# Editor and OS noise
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
